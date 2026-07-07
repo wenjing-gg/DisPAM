@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+conda-env/
+
+# Local configuration and secrets
+.env
+.env.*
+*.key
+*.pem
+api_key*.txt
+openai_api_key*.txt
+
+# Runtime outputs
+outputs/
+runs/
+logs/
+wandb/
+tensorboard/
+mlruns/
+*.log
+
+# Datasets and generated caches
+data/
+datasets/
+cache/
+teacher_cache/
+slice_cache/
+artifacts/
+
+# Model checkpoints and large binary artifacts
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.h5
+*.npz
+*.npy
+*.nii
+*.nii.gz
+*.dcm
+*.dicom
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+

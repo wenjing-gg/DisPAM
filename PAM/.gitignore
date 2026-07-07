@@ -1,0 +1,32 @@
+tutorials/checkpoints/
+
+# 大文件 - 模型文件
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.h5
+
+# 大文件 - 数据文件
+# *.nii.gz
+# *.nii
+# *.dcm
+# *.dicom
+
+# 大文件 - 其他
+*.sh
+!github.sh
+*.zip
+*.tar.gz
+*.rar
+
+# # 数据集目录
+# tutorials/datasets/*/images/
+# tutorials/datasets/*/masks/
+tutorials/datasets/NeurIPS-2022-Cell-Seg_subset/cell_00001_label.tiff
+tutorials/datasets/NeurIPS-2022-Cell-Seg_subset/convert_label_to_prompt.ipynb
+tutorials/datasets/HC18_subset/convert_contour_to_mask.ipynb
+tutorials/datasets/HC18_subset/guiding_original_annotations/
+figures/3d-propagation.mp4
+figures/PAM_github.pptx
+tutorials/datasets/CHAOS-CT_subset/3d_viz.py
