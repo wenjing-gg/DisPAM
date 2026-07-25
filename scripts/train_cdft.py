@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Jointly fine-tune the four target-specific students with CDFT."""
+"""Jointly fine-tune the four target-specific students with CDFT.
+
+Paper mapping:
+  Consensus-Divergence Fine-Tune / Consensus-Divergence Contrastive Learning.
+"""
 
 from __future__ import annotations
 

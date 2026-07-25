@@ -1,4 +1,9 @@
-"""Prompt-Free full-volume evaluation."""
+"""Prompt-Free full-volume evaluation.
+
+Paper mapping:
+  Test-time prediction. Each target-specific bank averages the four CDFT
+  probability maps and binarizes the result without PAM or a clinical prompt.
+"""
 
 from __future__ import annotations
 

@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--method", required=True)
     parser.add_argument("--case-column", default="case_id")
     parser.add_argument("--metric-column", required=True)
+    parser.add_argument("--alpha", type=float, default=0.05)
     parser.add_argument("--output", default="")
     return parser.parse_args()
 
@@ -78,6 +79,8 @@ def main() -> None:
         "matched_case_count": len(case_ids),
         "statistic": statistic,
         "p_value": p_value,
+        "alpha": float(args.alpha),
+        "significant": bool(p_value < float(args.alpha)),
         "case_ids": case_ids,
     }
     output = json.dumps(payload, indent=2)

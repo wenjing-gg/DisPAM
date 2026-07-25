@@ -65,6 +65,8 @@ def build_consensus_divergence(
     min_component_voxels: int,
 ) -> RegionBatch:
     """Build fixed regions from the four dual-distilled probability maps."""
+    # CDFT zone determination: component support and probability dispersion
+    # instantiate the paper's Consensus and Divergence region definitions.
     if len(probabilities) != 4:
         raise ValueError(f"CDFT requires four model probabilities, got {len(probabilities)}.")
     shapes = {tuple(probability.shape) for probability in probabilities}

@@ -1,4 +1,11 @@
-"""Target-visibility agents used after PASE ranking."""
+"""Target-visibility agents used after PASE ranking.
+
+Paper mapping:
+  Anatomy-Agent Adaptive Slice Selector / Agent Selection and Human Annotation.
+  Candidates are queried in descending PASE order, each candidate receives
+  three binary visibility decisions, and the first majority-accepted slice is
+  returned for clinician confirmation.
+"""
 
 from __future__ import annotations
 

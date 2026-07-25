@@ -308,6 +308,8 @@ def build_multi_perturbation_targets(
     binarization_threshold: float,
     confidence_threshold: float,
 ) -> Dict[str, np.ndarray]:
+    # Multi-Perturbation PAM: normal, dilation, and erosion implement
+    # M^{star,0}, M^{star,1}, and M^{star,2}, respectively.
     probabilities = {
         mode: pam.propagate(
             volume_zyx,
@@ -328,6 +330,8 @@ def build_multi_perturbation_targets(
     )
     dilation_binary = dilation >= float(binarization_threshold)
     erosion_binary = erosion >= float(binarization_threshold)
+    # The Hard target comes from the Normal branch; the Core region and
+    # probability come from confidence-filtered Dilation/Erosion agreement.
     core_region = (
         dilation_confident
         & erosion_confident

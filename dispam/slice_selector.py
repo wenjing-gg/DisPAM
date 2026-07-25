@@ -74,6 +74,8 @@ def propagation_aware_slice_estimation(
     transition = _unit_interval(
         ndi.gaussian_filter1d(transition, sigma=float(smoothing_sigma), mode="nearest")
     )
+    # PASE equations: support=S(z), interior=C(z), and
+    # boundary_stability=B(z); score is Omega(z)=S(z)C(z)B(z).
     mass = transition / max(float(transition.sum()), 1e-8)
     position = np.cumsum(mass) - mass / 2.0
     interior = np.sqrt(np.maximum(np.sin(np.pi * np.clip(position, 0.0, 1.0)), 0.0))

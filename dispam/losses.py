@@ -1,4 +1,12 @@
-"""Hard-Core distillation and Consensus-Divergence objectives."""
+"""Hard-Core distillation and Consensus-Divergence objectives.
+
+Paper mapping:
+  Hard-Core Dual Distillation uses the Normal PAM mask for Hard supervision and
+  the confidence-filtered Dilation/Erosion intersection for Core supervision.
+  Consensus-Divergence Contrastive Learning aligns cross-model Consensus
+  descriptors and separates Divergence descriptors from the stopped Consensus
+  reference.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +29,7 @@ def dice_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 def hard_distillation_loss(logits: torch.Tensor, hard_target: torch.Tensor) -> torch.Tensor:
     """Unweighted BCE-Dice supervision from the Normal PAM branch."""
+    # HCDD correspondence: this is the Hard term L_hard.
     bce = F.binary_cross_entropy_with_logits(logits, hard_target.float())
     return bce + dice_loss(logits, hard_target)
 
@@ -31,6 +40,7 @@ def core_distillation_loss(
     core_region: torch.Tensor,
 ) -> torch.Tensor | None:
     """Bernoulli KL on voxels jointly accepted by Dilation and Erosion."""
+    # HCDD correspondence: this is the Core term L_core.
     active = core_region.float()
     if float(active.sum().item()) <= 0:
         return None
@@ -112,6 +122,8 @@ def consensus_divergence_contrastive_loss(
     other three models is the positive reference. Every Divergence component
     from the same model contributes to the global relative-negative mean.
     """
+    # CDFT correspondence: Consensus components are cross-model positives,
+    # whereas Divergence components provide relative negatives.
     if len(descriptor_fields) != 4:
         raise ValueError("CDFT contrast requires four descriptor fields.")
     losses: List[torch.Tensor] = []

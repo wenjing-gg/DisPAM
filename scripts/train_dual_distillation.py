@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Train one heterogeneous student with Hard-Core Dual Distillation."""
+"""Train one heterogeneous student with Hard-Core Dual Distillation.
+
+Paper mapping:
+  Sparse-Prompt Dual Distillation / Hard-Core Dual Distillation.
+"""
 
 from __future__ import annotations
 

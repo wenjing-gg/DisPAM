@@ -6,7 +6,10 @@
     "per_case_run_aggregation": "arithmetic mean across five independent runs",
     "summary": "mean and standard deviation across case-level run averages",
     "significance_test": "two-sided paired Wilcoxon signed-rank test",
-    "statistical_unit": "case-level mean across runs"
+    "statistical_unit": "case-level mean across runs",
+    "significance_alpha": 0.05,
+    "wilcoxon_zero_method": "wilcox",
+    "multiple_comparison_scope": "prespecified matched method-target-metric comparisons; exact p-values retained"
   },
   "parameter_provenance": {
     "reference_implementation_defaults": [
@@ -27,6 +30,23 @@
   "data": {
     "datasets": ["KiTS19", "BraTS18", "LiTS"],
     "brats18_input_modality": "FLAIR",
+    "target_label_ids": {
+      "KiTS19": {
+        "kidney": [1],
+        "tumor": [2]
+      },
+      "BraTS18": {
+        "wt": [1, 2, 4],
+        "tc": [1, 4],
+        "et": [4]
+      },
+      "LiTS": {
+        "liver": [1],
+        "tumor": [2]
+      }
+    },
+    "channel_percentile_clip": [0.5, 99.5],
+    "channel_standardization": "mean and population standard deviation after clipping",
     "training_crop_zyx": [96, 96, 96],
     "crop_sampling": "foreground-aware random",
     "inference": "sliding window",
@@ -66,6 +86,8 @@
     "foreground_sampling_probability": 0.8,
     "core_sampling_probability": 0.5,
     "validation_interval_epochs": 10,
+    "initialization": "seeded architecture initialization without pretrained student weights",
+    "checkpoint_selection": "predefined final epoch 100 stored as last.pt; validation is monitoring only; validation-best checkpoint and full history retained for diagnostics",
     "encoder_embedding_dimension": 48,
     "hard_loss": "BCE-Dice",
     "core_loss": "Bernoulli KL divergence",
@@ -86,6 +108,8 @@
     "foreground_sampling_probability": 0.8,
     "core_sampling_probability": 0.5,
     "validation_interval_epochs": 1,
+    "initialization": "four predefined epoch-100 dual-distilled last.pt checkpoints",
+    "checkpoint_selection": "predefined final epoch 10 stored as the last/ four-model bank; validation is monitoring only; validation-best bank and full history retained for diagnostics",
     "gradient_clip_norm": 1.0,
     "embedding_dimension": 32,
     "embedding_hidden_dimension": 32,
