@@ -1,7 +1,6 @@
 # DisPAM
 
-Official implementation of **DisPAM: Knowledge Distillation-Based Sparse-Prompt
-Learning for Weak Supervision in 3D Medical Image Segmentation**.
+Official implementation of **From One Slice to the Whole Volume: Single-Slice Supervision for\\ Weakly Supervised 3D Medical Image Segmentation**.
 
 DisPAM learns target-specific 3D segmentation models from one selected
 single-slice mask. It combines Anatomy-Agent Adaptive Slice Selector,
