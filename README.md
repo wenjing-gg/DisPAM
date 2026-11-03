@@ -39,7 +39,7 @@ build training caches, train the students, and evaluate the final bank.
 
 ## Data and evaluation
 
-The revised protocol uses fixed, **disjoint train / validation / test** case
+The protocol uses fixed, **disjoint train / validation / test** case
 collections. Training updates use `train`; checkpoint selection uses `val`;
 final performance is computed on `test`.
 
@@ -50,9 +50,7 @@ final performance is computed on `test`.
 | LiTS | 94 | 10 | 27 | Liver, tumor |
 
 Use the same [split files](configs/splits/) for every method and random seed.
-This protocol requires fresh checkpoints; evaluation checks their recorded
-training and selection splits. See [protocol details](docs/USAGE.md#data-protocol)
-for migration from the earlier two-way release.
+See the [usage guide](docs/USAGE.md#data-protocol) for data preparation.
 
 ## Single-pass agent
 

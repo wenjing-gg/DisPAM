@@ -2,18 +2,10 @@
 
 ## Data protocol
 
-`configs/splits/` contains explicit `train`, `val`, and `test` case lists.
-Validation contains 10% of the original development pool, held out with split
-seed 0. The outer evaluation case IDs are retained as `test`. Training seeds
-change optimization, not the case partition. Apply these exact partitions to
-all comparison methods.
-
-The earlier release used two-way splits, including a `val` loader alias for
-`test`. This release removes that alias. Its changed validation and agent
-protocols require fresh training caches, region caches, and checkpoints;
-previously reported metrics are not re-established by this code update.
-Checkpoints and CDFT regions record their case partition, and incompatible or
-unrecorded partitions are rejected during refinement and evaluation.
+`configs/splits/` defines disjoint `train`, `val`, and `test` case lists for
+training, checkpoint selection, and final evaluation. Validation contains 10%
+of the development pool, selected with split seed 0. Use the same partitions
+for all training seeds and comparison methods.
 
 For a custom split, provide three nonempty, pairwise-disjoint case lists. To
 hold validation cases out of an existing development pool:
@@ -25,9 +17,8 @@ python scripts/create_splits.py \
   --validation-fraction 0.1 --seed 0
 ```
 
-The input may use `train` / `test`, legacy `train_case_ids` / `val_case_ids`,
-or an existing three-way file. For a three-way input, its `train` and `val`
-lists form the development pool; test IDs are never reassigned.
+The input uses `train` and `test` lists, or `train`, `val`, and `test` lists.
+For the latter, `train` and `val` form the development pool; `test` stays fixed.
 
 Download the datasets from their official providers and use these layouts:
 
@@ -83,13 +74,12 @@ python scripts/build_pam_cache.py \
 The agent makes one call per candidate with deterministic decoding parameters.
 Candidates are examined in PASE order until an affirmative decision. If no
 candidate is accepted for a present target, cache generation stops with an
-error. There is no additional human selection step.
+error.
 
 For replay, use `--agent-backend replay --agent-decisions <decisions.json>`
 instead of the API options. The JSON maps `case_id/target/slice_index` to one
 boolean, as in [the example](../examples/agent_decisions.example.json).
-Multi-vote lists are rejected. Existing caches from the earlier policy must
-be regenerated with `--overwrite`. Build caches only for `train`.
+Build caches for `train`; use `--overwrite` to regenerate them.
 
 For the box extension, change to `--prompt-type box` and add
 `--box2mask-checkpoint checkpoints/pam/box2mask.pth`.
@@ -108,7 +98,6 @@ done
 
 Each student uses only training-case teacher targets for optimization.
 `best.pt` is selected by validation Dice; `last.pt` stores the final epoch.
-Test cases are not used for either decision.
 
 ## Consensus-Divergence refinement
 
@@ -152,10 +141,8 @@ python scripts/evaluate.py \
   --device cuda:0 --amp --seed "$SEED"
 ```
 
-Test prediction requires neither PAM nor a slice prompt. `--split val` is
-available for validation diagnostics and is labeled as validation in the
-output; final evaluation defaults to `test`. Freeze the protocol and model
-selection choices before running the test set.
+Test prediction requires neither PAM nor a slice prompt. Evaluation defaults
+to `--split test`; use `--split val` for validation diagnostics.
 
 For five training seeds, average metrics per case before computing the
 across-case mean and population standard deviation:
