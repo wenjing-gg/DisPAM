@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", required=True, choices=["kits19", "brats18", "lits"])
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--split-file", type=Path, required=True)
-    parser.add_argument("--splits", nargs="+", default=["train", "val"])
+    parser.add_argument("--splits", nargs="+", choices=["train", "val", "test"], default=["train", "val", "test"])
     parser.add_argument("--check-volumes", action="store_true")
     parser.add_argument("--max-cases", type=int, default=0)
     parser.add_argument("--output", type=Path, required=True)

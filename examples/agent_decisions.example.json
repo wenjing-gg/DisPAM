@@ -1,4 +1,4 @@
 {
-  "case_00000/kidney/77": [true, true, true],
-  "case_00000/kidney/76": [false, false, false]
+  "case_00000/kidney/77": true,
+  "case_00000/kidney/76": false
 }

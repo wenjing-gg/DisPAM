@@ -220,6 +220,7 @@ class CDFTPatchDataset(Dataset):
         foreground_probability: float,
         core_probability: float,
         seed: int,
+        data_protocol: Dict[str, object] | None = None,
     ) -> None:
         self.base = DistillationPatchDataset(
             cases,
@@ -245,6 +246,14 @@ class CDFTPatchDataset(Dataset):
             raise RuntimeError(
                 f"Missing fixed CDFT regions for {len(missing)} cases: {missing[:10]}"
             )
+        if data_protocol is not None:
+            for files in self.region_lookup.values():
+                metadata = json.loads(files.metadata.read_text(encoding="utf-8"))
+                if metadata.get("data_protocol") != data_protocol:
+                    raise ValueError(
+                        "CDFT regions use a different or unrecorded data split; "
+                        "rebuild them from checkpoints trained with this protocol."
+                    )
         self.patch_size = tuple(int(value) for value in patch_size)
 
     def __len__(self) -> int:

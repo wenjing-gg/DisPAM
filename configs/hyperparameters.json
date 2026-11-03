@@ -1,16 +1,5 @@
 {
-  "schema_version": 1,
-  "reported_results": {
-    "independent_runs": 5,
-    "seeds": [0, 1, 2, 3, 4],
-    "per_case_run_aggregation": "arithmetic mean across five independent runs",
-    "summary": "mean and standard deviation across case-level run averages",
-    "significance_test": "two-sided paired Wilcoxon signed-rank test",
-    "statistical_unit": "case-level mean across runs",
-    "significance_alpha": 0.05,
-    "wilcoxon_zero_method": "wilcox",
-    "multiple_comparison_scope": "prespecified matched method-target-metric comparisons; exact p-values retained"
-  },
+  "schema_version": 2,
   "parameter_provenance": {
     "reference_implementation_defaults": [
       "student architecture depth, width, and block configuration"
@@ -28,26 +17,54 @@
     ]
   },
   "data": {
-    "datasets": ["KiTS19", "BraTS18", "LiTS"],
+    "datasets": [
+      "KiTS19",
+      "BraTS18",
+      "LiTS"
+    ],
     "brats18_input_modality": "FLAIR",
     "target_label_ids": {
       "KiTS19": {
-        "kidney": [1],
-        "tumor": [2]
+        "kidney": [
+          1
+        ],
+        "tumor": [
+          2
+        ]
       },
       "BraTS18": {
-        "wt": [1, 2, 4],
-        "tc": [1, 4],
-        "et": [4]
+        "wt": [
+          1,
+          2,
+          4
+        ],
+        "tc": [
+          1,
+          4
+        ],
+        "et": [
+          4
+        ]
       },
       "LiTS": {
-        "liver": [1],
-        "tumor": [2]
+        "liver": [
+          1
+        ],
+        "tumor": [
+          2
+        ]
       }
     },
-    "channel_percentile_clip": [0.5, 99.5],
+    "channel_percentile_clip": [
+      0.5,
+      99.5
+    ],
     "channel_standardization": "mean and population standard deviation after clipping",
-    "training_crop_zyx": [96, 96, 96],
+    "training_crop_zyx": [
+      96,
+      96,
+      96
+    ],
     "crop_sampling": "foreground-aware random",
     "inference": "sliding window",
     "sliding_window_overlap": 0.5,
@@ -57,23 +74,39 @@
     "candidate_order": "descending propagation-aware score",
     "foreground_estimator": "Otsu thresholding",
     "slice_score_smoothing_sigma": 1.0,
-    "score_factors": ["anatomical support", "axial interior position", "local boundary stability"],
-    "agent_queries_per_candidate": 3,
-    "agent_decision": "majority vote",
+    "score_factors": [
+      "anatomical support",
+      "axial interior position",
+      "local boundary stability"
+    ],
+    "agent_queries_per_candidate": 1,
+    "agent_decision": "first affirmative binary visibility decision",
     "agent_decoding": "deterministic",
-    "all_no_fallback_top_k": 3
+    "agent_model": "gpt-5.5",
+    "temperature": 0,
+    "top_p": 1,
+    "no_accepted_candidate": "stop cache generation for that target with an error"
   },
   "multi_perturbation_pam_propagation": {
     "pam_frozen": true,
     "prompt_type": "target-specific single-slice binary mask",
-    "perturbations": ["normal", "one-pixel dilation", "one-pixel erosion"],
+    "perturbations": [
+      "normal",
+      "one-pixel dilation",
+      "one-pixel erosion"
+    ],
     "pam_target_size": 224,
     "pam_crop_ratio": 1.5,
     "binarization_threshold": 0.5,
     "core_confidence_threshold": 0.7
   },
   "sparse_prompt_dual_distillation": {
-    "student_models": ["VISTA3D", "PrimusV2", "SegMambaV2", "U-RWKV"],
+    "student_models": [
+      "VISTA3D",
+      "PrimusV2",
+      "SegMambaV2",
+      "U-RWKV"
+    ],
     "epochs": 100,
     "optimizer": "AdamW",
     "learning_rate_scheduler": "cosine annealing",
@@ -87,7 +120,7 @@
     "core_sampling_probability": 0.5,
     "validation_interval_epochs": 10,
     "initialization": "seeded architecture initialization without pretrained student weights",
-    "checkpoint_selection": "predefined final epoch 100 stored as last.pt; validation is monitoring only; validation-best checkpoint and full history retained for diagnostics",
+    "checkpoint_selection": "highest Dice on the disjoint validation split, stored as best.pt; last.pt stores the final epoch",
     "encoder_embedding_dimension": 48,
     "hard_loss": "BCE-Dice",
     "core_loss": "Bernoulli KL divergence",
@@ -97,7 +130,7 @@
     "epochs": 10,
     "models_jointly_fine_tuned": 4,
     "optimizer": "AdamW",
-    "initial_learning_rate": 0.00002,
+    "initial_learning_rate": 2e-05,
     "descriptor_learning_rate": 0.0002,
     "weight_decay": 0.0001,
     "learning_rate_scheduler": "cosine annealing",
@@ -108,8 +141,8 @@
     "foreground_sampling_probability": 0.8,
     "core_sampling_probability": 0.5,
     "validation_interval_epochs": 1,
-    "initialization": "four predefined epoch-100 dual-distilled last.pt checkpoints",
-    "checkpoint_selection": "predefined final epoch 10 stored as the last/ four-model bank; validation is monitoring only; validation-best bank and full history retained for diagnostics",
+    "initialization": "four validation-selected HCDD best.pt checkpoints with the same train/val/test partition",
+    "checkpoint_selection": "highest Dice on the disjoint validation split, stored as the best/ four-model bank; final test is separate",
     "gradient_clip_norm": 1.0,
     "embedding_dimension": 32,
     "embedding_hidden_dimension": 32,
@@ -162,5 +195,27 @@
     "scikit_image": "0.21.0",
     "timm": "1.0.3",
     "dynamic_network_architectures": "0.4.3"
+  },
+  "evaluation_protocol": {
+    "independent_runs": 5,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "per_case_run_aggregation": "arithmetic mean across five independent runs",
+    "summary": "mean and standard deviation across case-level run averages",
+    "significance_test": "two-sided paired Wilcoxon signed-rank test",
+    "statistical_unit": "case-level mean across runs",
+    "significance_alpha": 0.05,
+    "wilcoxon_zero_method": "wilcox",
+    "multiple_comparison_scope": "prespecified matched method-target-metric comparisons; exact p-values retained",
+    "data_partition": "Three explicit, nonempty and disjoint train/val/test case lists; fixed across training seeds and baselines.",
+    "checkpoint_selection_split": "val",
+    "final_evaluation_split": "test",
+    "validation_holdout_fraction": 0.1,
+    "split_seed": 0
   }
 }

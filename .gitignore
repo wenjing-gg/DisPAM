@@ -11,3 +11,13 @@ checkpoints/
 outputs/
 runs/
 wandb/
+
+.venv/
+.env
+.env.*
+!.env.example
+*.pt
+*.pth
+*.nii
+*.nii.gz
+*.nrrd

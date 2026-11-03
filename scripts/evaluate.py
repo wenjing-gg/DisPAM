@@ -16,7 +16,7 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 if str(REPOSITORY) not in sys.path:
     sys.path.insert(0, str(REPOSITORY))
 
-from dispam.datasets import cases_for_split, target_label_ids
+from dispam.datasets import cases_for_split, target_label_ids, split_protocol
 from dispam.evaluation import evaluate_ensemble
 from dispam.models import MODEL_NAMES, load_model_checkpoint
 from dispam.reproducibility import set_seed
@@ -64,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", required=True, choices=["kits19", "brats18", "lits"])
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--split-file", type=Path, required=True)
-    parser.add_argument("--split", default="val")
+    parser.add_argument("--split", choices=["test", "val"], default="test")
     parser.add_argument(
         "--bank",
         action="append",
@@ -84,6 +84,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    protocol = split_protocol(args.dataset, args.split_file)
     banks = _bank_specs(args.bank)
     set_seed(args.seed)
     device = torch.device(args.device)
@@ -97,6 +98,8 @@ def main() -> None:
     complete_summary: Dict[str, object] = {
         "dataset": args.dataset,
         "split": args.split,
+        "purpose": "final_test" if args.split == "test" else "validation",
+        "data_protocol": protocol,
         "seed": args.seed,
         "targets": {},
     }
@@ -113,6 +116,8 @@ def main() -> None:
                 args.patch_size,
                 device,
                 args.encoder_embed_dim,
+                data_protocol=protocol,
+                target=target,
             )
             model.eval()
             models.append(model)

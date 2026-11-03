@@ -267,7 +267,7 @@ class DisPAMCoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "split.json"
             path.write_text(
-                json.dumps({"train_case_ids": ["case_1", "/tmp/case_2/"]}),
+                json.dumps({"train_case_ids": ["case_1", "data/case_2/"], "val_case_ids": ["case_val"], "test_case_ids": ["case_test"]}),
                 encoding="utf-8",
             )
             self.assertEqual(

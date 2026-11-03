@@ -13,6 +13,8 @@ from typing import Any, Dict, Sequence, Tuple
 import torch
 from torch import nn
 
+from ..datasets import validate_checkpoint_protocol
+
 MODEL_NAMES: Tuple[str, ...] = ("vista3d", "primusv2", "segmambav2", "urwkv")
 
 
@@ -251,8 +253,13 @@ def load_model_checkpoint(
     patch_size: Sequence[int],
     device: torch.device,
     encoder_embed_dim: int = 48,
+    *,
+    data_protocol: Dict[str, Any] | None = None,
+    target: str | None = None,
 ) -> Tuple[nn.Module, Dict[str, Any]]:
     checkpoint = torch.load(Path(path), map_location="cpu")
+    if data_protocol is not None:
+        validate_checkpoint_protocol(checkpoint, data_protocol, target)
     model = build_model(
         name=name,
         target_label_id=target_label_id,

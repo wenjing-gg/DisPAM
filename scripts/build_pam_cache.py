@@ -22,7 +22,7 @@ from dispam.agent import (
     select_visible_slice,
 )
 from dispam.cache import cache_files, save_cache
-from dispam.datasets import cases_for_split, target_label_ids
+from dispam.datasets import cases_for_split, target_label_ids, load_splits
 from dispam.io import load_case_image, load_volume_any
 from dispam.pam import (
     FrozenPAM,
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", required=True, choices=["kits19", "brats18", "lits"])
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--split-file", type=Path, required=True)
-    parser.add_argument("--splits", nargs="+", default=["train", "val"])
+    parser.add_argument("--splits", nargs="+", choices=["train"], default=["train"])
     parser.add_argument("--targets", nargs="+", required=True)
     parser.add_argument("--cache-root", type=Path, required=True)
     parser.add_argument("--pam-checkpoint", type=Path, required=True)
@@ -48,17 +48,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt-file", type=Path, required=True)
     parser.add_argument("--agent-backend", choices=["replay", "api"], default="replay")
     parser.add_argument("--agent-decisions", type=Path)
-    parser.add_argument(
-        "--clinician-fallback",
-        type=Path,
-        help=(
-            "JSON mapping case_id/target to a selected top-three slice index or null "
-            "when all VLM candidates are rejected."
-        ),
-    )
-    parser.add_argument("--agent-model", default="")
+    parser.add_argument("--agent-model", default="gpt-5.5")
     parser.add_argument("--agent-endpoint", default="")
-    parser.add_argument("--agent-repetitions", type=int, default=3)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--target-size", type=int, default=224)
     parser.add_argument("--binarization-threshold", type=float, default=0.5)
@@ -80,19 +71,9 @@ def build_agent(args: argparse.Namespace):
 
 def main() -> None:
     args = parse_args()
+    load_splits(args.split_file)
     set_seed(args.seed)
     prompts: Dict[str, str] = json.loads(args.prompt_file.read_text(encoding="utf-8"))
-    fallback: Dict[str, int | None] = {}
-    if args.clinician_fallback is not None:
-        raw_fallback = json.loads(
-            args.clinician_fallback.read_text(encoding="utf-8")
-        )
-        if not isinstance(raw_fallback, dict):
-            raise TypeError("--clinician-fallback must contain a JSON object.")
-        fallback = {
-            str(key): None if value is None else int(value)
-            for key, value in raw_fallback.items()
-        }
     agent = build_agent(args)
     pam = FrozenPAM(
         propagation_checkpoint=args.pam_checkpoint,
@@ -119,6 +100,12 @@ def main() -> None:
             for target in args.targets:
                 files = cache_files(args.cache_root, split, target, case.case_id)
                 if files.npz.exists() and not args.overwrite:
+                    metadata = (
+                        json.loads(files.metadata.read_text(encoding="utf-8"))
+                        if files.metadata.exists() else {}
+                    )
+                    if metadata.get("agent_queries_per_candidate") != 1:
+                        raise ValueError("Existing cache uses an older agent policy; rebuild with --overwrite.")
                     continue
                 target_mask = np.isin(
                     label,
@@ -136,25 +123,12 @@ def main() -> None:
                     ranking.order,
                     image[channel],
                     prompts[prompt_key],
-                    repetitions=args.agent_repetitions,
                 )
                 if selected_slice is None:
-                    fallback_key = f"{case.case_id}/{target}"
-                    if fallback_key not in fallback:
-                        raise RuntimeError(
-                            f"{fallback_key}: all candidates were rejected; provide "
-                            "the clinician's top-three review in --clinician-fallback."
-                        )
-                    selected_slice = fallback[fallback_key]
-                    if selected_slice is None:
-                        print(f"Skipped clinician-confirmed absent target {fallback_key}.")
-                        continue
-                    if int(selected_slice) not in set(ranking.order[:3]):
-                        raise ValueError(
-                            f"{fallback_key}: fallback slice {selected_slice} is not "
-                            f"among the PASE top three {list(ranking.order[:3])}."
-                        )
-                    selected_slice = int(selected_slice)
+                    raise RuntimeError(
+                        f"{case.case_id}/{target}: no candidate received an affirmative "
+                        "visibility decision; no teacher cache was generated."
+                    )
                 annotated_mask = target_mask[selected_slice]
                 if not np.any(annotated_mask):
                     raise RuntimeError(
@@ -189,6 +163,9 @@ def main() -> None:
                         "target": target,
                         "split": split,
                         "selected_slice": selected_slice,
+                        "agent_queries_per_candidate": 1,
+                        "agent_decoding": {"temperature": 0, "top_p": 1},
+                        "agent_model": args.agent_model if args.agent_backend == "api" else "replay",
                         "prompt_type": args.prompt_type,
                         "boxes_xyxy": boxes,
                         "pase_score": float(ranking.score[selected_slice]),

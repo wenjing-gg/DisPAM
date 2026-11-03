@@ -22,7 +22,7 @@ if str(REPOSITORY) not in sys.path:
     sys.path.insert(0, str(REPOSITORY))
 
 from dispam.cache import DistillationPatchDataset
-from dispam.datasets import cases_for_split, target_label_ids
+from dispam.datasets import cases_for_split, target_label_ids, split_protocol
 from dispam.evaluation import evaluate_model
 from dispam.losses import (
     core_distillation_loss,
@@ -64,6 +64,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    protocol = split_protocol(args.dataset, args.split_file)
     set_seed(args.seed)
     device = torch.device(args.device)
     train_cases = cases_for_split(
@@ -107,6 +108,7 @@ def main() -> None:
     )
     scheduler = CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp and device.type == "cuda")
+    metadata = {**vars(args), "data_protocol": protocol}
     best_dice = -1.0
     history = []
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -162,7 +164,7 @@ def main() -> None:
                     scheduler,
                     epoch,
                     args.model,
-                    vars(args),
+                    metadata,
                 )
         save_model_checkpoint(
             args.output_dir / "last.pt",
@@ -171,7 +173,7 @@ def main() -> None:
             scheduler,
             epoch,
             args.model,
-            vars(args),
+            metadata,
         )
         history.append(row)
         print(json.dumps(row))

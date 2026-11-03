@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import sys
@@ -20,7 +19,7 @@ if str(REPOSITORY) not in sys.path:
 from dispam.cache import region_files, save_regions
 from dispam.component_selection import label_components_6
 from dispam.components import build_consensus_divergence, sliding_window_probability
-from dispam.datasets import cases_for_split, target_label_ids
+from dispam.datasets import cases_for_split, target_label_ids, split_protocol
 from dispam.io import load_case_image, robust_normalize_channels
 from dispam.models import MODEL_NAMES, load_model_checkpoint
 from dispam.reproducibility import set_seed
@@ -46,20 +45,12 @@ def _checkpoint_specs(values: Sequence[str]) -> Dict[str, Path]:
     return output
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", required=True, choices=["kits19", "brats18", "lits"])
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--split-file", type=Path, required=True)
-    parser.add_argument("--splits", nargs="+", default=["train"])
+    parser.add_argument("--splits", nargs="+", choices=["train"], default=["train"])
     parser.add_argument("--target", required=True)
     parser.add_argument("--checkpoint", action="append", required=True)
     parser.add_argument("--output-root", type=Path, required=True)
@@ -80,13 +71,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    protocol = split_protocol(args.dataset, args.split_file)
     checkpoint_paths = _checkpoint_specs(args.checkpoint)
     set_seed(args.seed)
     device = torch.device(args.device)
-    checkpoint_hashes = {
-        model_name: _sha256(path)
-        for model_name, path in checkpoint_paths.items()
-    }
     for split in args.splits:
         cases = cases_for_split(
             args.dataset,
@@ -106,6 +94,8 @@ def main() -> None:
                 args.patch_size,
                 device,
                 args.encoder_embed_dim,
+                data_protocol=protocol,
+                target=args.target,
             )
             model.eval().requires_grad_(False)
             models.append(model)
@@ -157,7 +147,7 @@ def main() -> None:
                     "dataset": args.dataset,
                     "target": args.target,
                     "split": split,
-                    "checkpoint_sha256": checkpoint_hashes,
+                    "data_protocol": protocol,
                     "probability_threshold": args.probability_threshold,
                     "consensus_min_votes": args.consensus_min_votes,
                     "probability_std_type": "population",

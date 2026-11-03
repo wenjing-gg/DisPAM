@@ -9,7 +9,7 @@ Paper mapping:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple
+from typing import Tuple
 
 import numpy as np
 from scipy import ndimage as ndi
@@ -89,9 +89,3 @@ def propagation_aware_slice_estimation(
         interior=interior,
         boundary_stability=boundary_stability,
     )
-
-
-def majority_visible(decisions: Sequence[bool]) -> bool:
-    if not decisions:
-        raise ValueError("At least one visibility decision is required.")
-    return sum(bool(value) for value in decisions) > len(decisions) // 2

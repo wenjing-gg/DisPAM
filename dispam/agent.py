@@ -1,10 +1,7 @@
 """Target-visibility agents used after PASE ranking.
 
-Paper mapping:
-  Anatomy-Agent Adaptive Slice Selector / Agent Selection and Human Annotation.
-  Candidates are queried in descending PASE order, each candidate receives
-  three binary visibility decisions, and the first majority-accepted slice is
-  returned for clinician confirmation.
+Candidates are queried once in descending PASE order. The first affirmative
+visibility decision selects the guiding slice.
 """
 
 from __future__ import annotations
@@ -21,8 +18,6 @@ from urllib import request
 import numpy as np
 from PIL import Image
 
-from .slice_selector import majority_visible
-
 
 class VisibilityAgent(ABC):
     @abstractmethod
@@ -33,7 +28,6 @@ class VisibilityAgent(ABC):
         slice_index: int,
         image_2d: np.ndarray,
         prompt: str,
-        repetition: int,
     ) -> bool:
         raise NotImplementedError
 
@@ -43,7 +37,14 @@ class ReplayVisibilityAgent(VisibilityAgent):
 
     def __init__(self, decisions_file: Path) -> None:
         payload = json.loads(Path(decisions_file).read_text(encoding="utf-8"))
-        self.decisions: Dict[str, object] = dict(payload)
+        if not isinstance(payload, dict) or any(
+            type(value) is not bool for value in payload.values()
+        ):
+            raise ValueError(
+                "Replay decisions must contain one boolean per case/target/slice; "
+                "regenerate multi-vote records."
+            )
+        self.decisions: Dict[str, bool] = dict(payload)
 
     def is_visible(
         self,
@@ -52,14 +53,12 @@ class ReplayVisibilityAgent(VisibilityAgent):
         slice_index: int,
         image_2d: np.ndarray,
         prompt: str,
-        repetition: int,
     ) -> bool:
         del image_2d, prompt
         key = f"{case_id}/{target}/{int(slice_index)}"
-        values = self.decisions.get(key)
-        if not isinstance(values, list) or repetition >= len(values):
-            raise KeyError(f"Missing replay decision {key}, repetition={repetition}.")
-        return bool(values[repetition])
+        if key not in self.decisions:
+            raise KeyError(f"Missing replay decision {key}.")
+        return self.decisions[key]
 
 
 def _png_data_url(image_2d: np.ndarray) -> str:
@@ -95,9 +94,8 @@ class OpenAICompatibleVisibilityAgent(VisibilityAgent):
         slice_index: int,
         image_2d: np.ndarray,
         prompt: str,
-        repetition: int,
     ) -> bool:
-        del case_id, target, slice_index, repetition
+        del case_id, target, slice_index
         api_key = os.environ.get(self.api_key_env, "")
         if not api_key:
             raise RuntimeError(f"Environment variable {self.api_key_env} is not set.")
@@ -144,20 +142,14 @@ def select_visible_slice(
     candidate_order: Sequence[int],
     volume_zyx: np.ndarray,
     prompt: str,
-    repetitions: int = 3,
 ) -> int | None:
     for slice_index in candidate_order:
-        decisions = [
-            agent.is_visible(
-                case_id,
-                target,
-                int(slice_index),
-                volume_zyx[int(slice_index)],
-                prompt,
-                repetition,
-            )
-            for repetition in range(int(repetitions))
-        ]
-        if majority_visible(decisions):
+        if agent.is_visible(
+            case_id,
+            target,
+            int(slice_index),
+            volume_zyx[int(slice_index)],
+            prompt,
+        ):
             return int(slice_index)
     return None

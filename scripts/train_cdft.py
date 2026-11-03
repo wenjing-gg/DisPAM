@@ -26,7 +26,7 @@ from dispam.cache import CDFTPatchDataset
 from dispam.components import (
     component_masks_from_labels,
 )
-from dispam.datasets import cases_for_split, target_label_ids
+from dispam.datasets import cases_for_split, target_label_ids, split_protocol
 from dispam.evaluation import evaluate_ensemble
 from dispam.losses import (
     FeatureAdapter,
@@ -156,6 +156,7 @@ def _save_bank(
 
 def main() -> None:
     args = parse_args()
+    protocol = split_protocol(args.dataset, args.split_file)
     checkpoint_paths = _checkpoint_specs(args.checkpoint)
     set_seed(args.seed)
     device = torch.device(args.device)
@@ -176,6 +177,7 @@ def main() -> None:
         args.foreground_probability,
         args.core_probability,
         args.seed,
+        data_protocol=protocol,
     )
     loader = DataLoader(
         train_dataset,
@@ -198,6 +200,8 @@ def main() -> None:
             args.patch_size,
             device,
             args.encoder_embed_dim,
+            data_protocol=protocol,
+            target=args.target,
         )
 
     first_batch = next(iter(loader))
@@ -240,7 +244,7 @@ def main() -> None:
     scheduler = CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp and device.type == "cuda")
     use_amp = bool(args.amp and device.type == "cuda")
-    metadata = vars(args).copy()
+    metadata = {**vars(args), "data_protocol": protocol}
     metadata["checkpoint"] = [str(value) for value in args.checkpoint]
     metadata["feature_channels"] = feature_channels
     args.output_dir.mkdir(parents=True, exist_ok=True)

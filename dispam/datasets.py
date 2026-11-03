@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import random
 import re
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -61,20 +62,89 @@ def _normalize_case_id(value: object) -> str:
     return Path(text).name if text else ""
 
 
-def load_split_case_ids(path: Path, split: str) -> List[str]:
+def load_splits(path: Path) -> Dict[str, List[str]]:
+    """Read three explicit, nonempty, pairwise-disjoint case collections."""
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError(f"Split file must contain a JSON object: {path}")
+    splits: Dict[str, List[str]] = {}
+    for name in ("train", "val", "test"):
+        aliases = [payload[key] for key in (name, f"{name}_case_ids") if key in payload]
+        if not aliases or any(not isinstance(ids, list) or not ids for ids in aliases):
+            raise ValueError(f"An explicit, nonempty {name!r} split is required.")
+        normalized = [[_normalize_case_id(value) for value in ids] for ids in aliases]
+        if any(ids != normalized[0] for ids in normalized[1:]):
+            raise ValueError(f"Conflicting case lists for {name!r}.")
+        ids = normalized[0]
+        if any(not case_id for case_id in ids) or len(ids) != len(set(ids)):
+            raise ValueError(f"Empty or duplicate case identifiers in {name!r}.")
+        for other, other_ids in splits.items():
+            overlap = set(ids).intersection(other_ids)
+            if overlap:
+                raise ValueError(f"{other}/{name} case overlap: {sorted(overlap)[:10]}")
+        splits[name] = ids
+    return splits
+
+
+def load_split_case_ids(path: Path, split: str) -> List[str]:
     split_name = str(split).strip().lower()
-    candidates = [f"{split_name}_case_ids", split_name]
-    if split_name == "val":
-        candidates.extend(["test_case_ids", "test"])
-    for key in candidates:
-        values = payload.get(key)
-        if isinstance(values, list) and values:
-            case_ids = [_normalize_case_id(value) for value in values]
-            return [case_id for case_id in case_ids if case_id]
-    raise RuntimeError(f"No case identifiers for split {split!r} in {path}.")
+    if split_name not in ("train", "val", "test"):
+        raise ValueError(f"Unknown split {split!r}.")
+    return load_splits(path)[split_name]
+
+
+def make_three_way_split(
+    development_ids: Sequence[str],
+    test_ids: Sequence[str],
+    validation_fraction: float = 0.1,
+    seed: int = 0,
+) -> Dict[str, object]:
+    """Hold validation cases out of a development pool without moving test cases."""
+    development = sorted(_normalize_case_id(value) for value in development_ids)
+    test = [_normalize_case_id(value) for value in test_ids]
+    if not 0 < validation_fraction < 1 or len(development) < 2 or not test:
+        raise ValueError("Need a development pool, a test set, and 0 < val fraction < 1.")
+    if any(not value for value in development + test):
+        raise ValueError("Case identifiers must not be empty.")
+    if len(set(development)) != len(development) or len(set(test)) != len(test):
+        raise ValueError("Duplicate case identifiers in the input pools.")
+    if set(development).intersection(test):
+        raise ValueError("Development and test pools overlap.")
+    count = min(len(development) - 1, max(1, round(len(development) * validation_fraction)))
+    val = set(random.Random(seed).sample(development, count))
+    return {
+        "schema_version": 2,
+        "validation_seed": seed,
+        "validation_fraction": validation_fraction,
+        "train": [case_id for case_id in development if case_id not in val],
+        "val": sorted(val),
+        "test": test,
+    }
+
+
+def split_protocol(dataset: str, path: Path) -> Dict[str, object]:
+    return {
+        "dataset": canonical_dataset_name(dataset),
+        **{name: sorted(ids) for name, ids in load_splits(path).items()},
+    }
+
+
+def validate_checkpoint_protocol(
+    checkpoint: Dict[str, object],
+    protocol: Dict[str, object],
+    target: str | None = None,
+) -> None:
+    metadata = checkpoint.get("metadata", {})
+    recorded = metadata.get("data_protocol") if isinstance(metadata, dict) else None
+    if recorded is None:
+        raise ValueError(
+            "Checkpoint has no train/val/test provenance. Retrain with the "
+            "three-way protocol before refinement or final evaluation."
+        )
+    if recorded != protocol:
+        raise ValueError("Checkpoint training/validation/test split differs from this run.")
+    if target is not None and metadata.get("target") != target:
+        raise ValueError("Checkpoint target differs from the requested target.")
 
 
 def _discover_kits19(root: Path) -> Iterable[CaseRecord]:
@@ -135,8 +205,8 @@ def cases_for_split(
     split_file: Path,
     split: str,
 ) -> List[CaseRecord]:
-    lookup = discover_cases(dataset, dataset_root)
     case_ids = load_split_case_ids(split_file, split)
+    lookup = discover_cases(dataset, dataset_root)
     missing = [case_id for case_id in case_ids if case_id not in lookup]
     if missing:
         raise RuntimeError(
