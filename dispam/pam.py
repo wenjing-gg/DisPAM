@@ -275,16 +275,16 @@ class FrozenPAM:
 
 
 def boxes_from_binary_mask(mask: np.ndarray) -> List[Tuple[int, int, int, int]]:
-    labels, count = ndi.label(np.asarray(mask, dtype=bool))
-    boxes: List[Tuple[int, int, int, int]] = []
-    for component_id in range(1, count + 1):
-        coordinates = np.argwhere(labels == component_id)
-        if coordinates.size == 0:
-            continue
-        low = coordinates.min(axis=0)
-        high = coordinates.max(axis=0) + 1
-        boxes.append((int(low[1]), int(low[0]), int(high[1]), int(high[0])))
-    return boxes
+    """Return one bounding box enclosing all target pixels, or none if empty.
+
+    Coordinates are (x_min, y_min, x_max, y_max), with exclusive maxima.
+    """
+    coordinates = np.argwhere(np.asarray(mask, dtype=bool))
+    if coordinates.size == 0:
+        return []
+    low = coordinates.min(axis=0)
+    high = coordinates.max(axis=0) + 1
+    return [(int(low[1]), int(low[0]), int(high[1]), int(high[0]))]
 
 
 def perturb_prompt(mask: np.ndarray, mode: str) -> np.ndarray:

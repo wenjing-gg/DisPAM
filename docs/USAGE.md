@@ -82,7 +82,8 @@ boolean, as in [the example](../examples/agent_decisions.example.json).
 Build caches for `train`; use `--overwrite` to regenerate them.
 
 For the box extension, change to `--prompt-type box` and add
-`--box2mask-checkpoint checkpoints/pam/box2mask.pth`.
+`--box2mask-checkpoint checkpoints/pam/box2mask.pth`. Each present target
+receives one box enclosing all of its foreground on the selected slice.
 
 ## Hard-Core Dual Distillation
 

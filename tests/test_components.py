@@ -199,14 +199,17 @@ class DisPAMCoreTests(unittest.TestCase):
         self.assertEqual(int(output["core_region"][0, 1, 0]), 0)
         self.assertAlmostEqual(float(output["core_probability"][0, 0, 0]), 0.85)
 
-    def test_box_extraction_keeps_separate_components(self) -> None:
+    def test_box_extraction_encloses_all_components(self) -> None:
         mask = np.zeros((8, 8), dtype=bool)
         mask[1:3, 2:5] = True
         mask[5:7, 6:8] = True
         self.assertEqual(
             boxes_from_binary_mask(mask),
-            [(2, 1, 5, 3), (6, 5, 8, 7)],
+            [(2, 1, 8, 7)],
         )
+
+    def test_box_extraction_empty_mask(self) -> None:
+        self.assertEqual(boxes_from_binary_mask(np.zeros((8, 8), dtype=bool)), [])
 
     def test_consensus_loss_does_not_create_background_targets(self) -> None:
         logits = torch.zeros((1, 1, 2, 2, 2), requires_grad=True)
