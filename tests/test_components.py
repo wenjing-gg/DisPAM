@@ -193,11 +193,24 @@ class DisPAMCoreTests(unittest.TestCase):
             0.5,
             0.7,
         )
-        self.assertEqual(int(output["hard_target"].sum()), 8)
+        self.assertEqual(int(output["hard_target"].sum()), 7)
+        self.assertEqual(int(output["hard_target"][0, 1, 1]), 0)
         self.assertEqual(int(output["core_region"][0, 0, 0]), 1)
         self.assertEqual(int(output["core_region"][0, 0, 1]), 0)
         self.assertEqual(int(output["core_region"][0, 1, 0]), 0)
         self.assertAlmostEqual(float(output["core_probability"][0, 0, 0]), 0.85)
+
+    def test_hard_target_uses_confident_agreement_and_retains_normal_elsewhere(self) -> None:
+        normal = np.array([[[0.1, 0.9, 0.1, 0.9, 0.1]]], dtype=np.float32)
+        dilation = np.array([[[0.9, 0.1, 0.9, 0.6, 0.9]]], dtype=np.float32)
+        erosion = np.array([[[0.8, 0.2, 0.1, 0.9, 0.8]]], dtype=np.float32)
+        output = build_multi_perturbation_targets(
+            SequencePAM([normal, dilation, erosion]),
+            np.zeros((1, 1, 5), dtype=np.float32), 0,
+            np.ones((1, 5), dtype=bool), 0.5, 0.7,
+        )
+        np.testing.assert_array_equal(output["hard_target"], [[[1, 0, 0, 1, 1]]])
+        np.testing.assert_array_equal(output["core_region"], [[[1, 1, 0, 0, 1]]])
 
     def test_box_extraction_encloses_all_components(self) -> None:
         mask = np.zeros((8, 8), dtype=bool)

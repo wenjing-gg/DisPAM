@@ -87,6 +87,10 @@ receives one box enclosing all of its foreground on the selected slice.
 
 ## Hard-Core Dual Distillation
 
+Confident foreground or background agreement between the Dilation and Erosion
+branches corrects the Normal-derived hard target; other voxels retain the
+Normal prediction.
+
 ```bash
 for MODEL in vista3d primusv2 segmambav2 urwkv; do
   python scripts/train_dual_distillation.py \

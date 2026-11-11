@@ -330,13 +330,13 @@ def build_multi_perturbation_targets(
     )
     dilation_binary = dilation >= float(binarization_threshold)
     erosion_binary = erosion >= float(binarization_threshold)
-    # The Hard target comes from the Normal branch; the Core region and
-    # probability come from confidence-filtered Dilation/Erosion agreement.
+    # Confident Dilation/Erosion agreement corrects the Normal target.
     core_region = (
         dilation_confident
         & erosion_confident
         & (dilation_binary == erosion_binary)
     )
+    hard_target = np.where(core_region, dilation_binary, hard_target)
     core_probability = ((dilation + erosion) / 2.0).astype(np.float32)
     return {
         "hard_target": hard_target.astype(np.uint8),
