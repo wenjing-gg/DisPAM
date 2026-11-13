@@ -14,7 +14,7 @@
 ![Inference](https://img.shields.io/badge/Inference-Prompt_Free-27877B)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue)](LICENSE)
 
-[Overview](#overview) · [Framework](#framework) · [Quick Start](#quick-start) · [Datasets](#datasets) · [Results](#results)
+[Overview](#overview) · [Framework](#framework) · [Quick Start](#quick-start) · [Results](#results)
 
 [Repository](https://github.com/wenjing-gg/DisPAM) · [Setup & Usage](docs/USAGE.md)
 
@@ -78,21 +78,6 @@ conda activate dispam
 4. Run prediction and evaluation using the trained student bank.
 
 See **[Setup & Usage](docs/USAGE.md)** for data preparation, script arguments, and checkpoint paths.
-
----
-
-<a id="datasets"></a>
-## 📦 Datasets
-
-| Dataset | Modality | Train | Evaluation | Targets |
-| :--- | :---: | ---: | ---: | :--- |
-| **KiTS19** | CT | 179 | 20 | Kidney, kidney tumor |
-| **BraTS18** | MRI | 228 | 57 | Whole tumor (WT), tumor core (TC), enhancing tumor (ET) |
-| **LiTS** | CT | 104 | 27 | Liver, liver tumor |
-
-We use 179/20, 228/57, and 104/27 training/evaluation cases for KiTS19, BraTS18, and LiTS, respectively. All methods use the same predefined data splits, preprocessing pipeline, and physical-space evaluation protocol. Each model is trained with a sufficient optimization budget for its validation performance to stabilize. Selected-slice reference masks initialize frozen PAM, whose propagated targets supervise students. To ensure data independence, we verified that none of the downstream training, validation, or evaluation volumes overlap with the data used for PAM pretraining or teacher checkpoint selection at the patient/volume level. For the main prompt-free segmentation benchmark, full-volume annotations of the evaluation cases are used exclusively for performance assessment and are never accessed during guiding-slice selection, teacher construction, or student training.
-
-The case lists are available in **[split files](configs/splits/)**.
 
 ---
 
