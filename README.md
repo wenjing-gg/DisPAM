@@ -90,7 +90,9 @@ See **[Setup & Usage](docs/USAGE.md)** for data preparation, script arguments, a
 | **BraTS18** | MRI | 228 | 57 | Whole tumor (WT), tumor core (TC), enhancing tumor (ET) |
 | **LiTS** | CT | 104 | 27 | Liver, liver tumor |
 
-Use the fixed **[split files](configs/splits/)** for all experiments. Students train on `train` with propagated teacher targets. The final-epoch checkpoints are used for refinement and final evaluation on `test`. Absent targets receive no prompt or teacher cache.
+We use 179/20, 228/57, and 104/27 training/evaluation cases for KiTS19, BraTS18, and LiTS, respectively. All methods use the same predefined data splits, preprocessing pipeline, and physical-space evaluation protocol. Each model is trained with a sufficient optimization budget for its validation performance to stabilize. Selected-slice reference masks initialize frozen PAM, whose propagated targets supervise students. To ensure data independence, we verified that none of the downstream training, validation, or evaluation volumes overlap with the data used for PAM pretraining or teacher checkpoint selection at the patient/volume level. For the main prompt-free segmentation benchmark, full-volume annotations of the evaluation cases are used exclusively for performance assessment and are never accessed during guiding-slice selection, teacher construction, or student training.
+
+The case lists are available in **[split files](configs/splits/)**.
 
 ---
 
