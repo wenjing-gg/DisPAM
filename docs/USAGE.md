@@ -2,23 +2,16 @@
 
 ## Data protocol
 
-`configs/splits/` defines disjoint `train`, `val`, and `test` case lists for
-training, checkpoint selection, and final evaluation. Validation contains 10%
-of the development pool, selected with split seed 0. Use the same partitions
-for all training seeds and comparison methods.
+`configs/splits/` defines disjoint training and evaluation case lists:
+KiTS19 uses 179/20 cases, BraTS18 uses 228/57, and LiTS uses 104/27.
+Use the same partitions for all training seeds and comparison methods.
+HCDD and CDFT use a preset optimization budget of 100 epochs per stage.
+Their final-epoch checkpoints are used for refinement and evaluation.
 
-For a custom split, provide three nonempty, pairwise-disjoint case lists. To
-hold validation cases out of an existing development pool:
-
-```bash
-python scripts/create_splits.py \
-  --input configs/custom_development_test.json \
-  --output configs/custom_three_way.json \
-  --validation-fraction 0.1 --seed 0
-```
-
-The input uses `train` and `test` lists, or `train`, `val`, and `test` lists.
-For the latter, `train` and `val` form the development pool; `test` stays fixed.
+Custom split files require nonempty `train` and `test` lists. An optional,
+pairwise-disjoint `val` list enables validation monitoring during training;
+validation scores do not select the exported checkpoints. Evaluation cases
+are accessed only by the final evaluation script.
 
 Download the datasets from their official providers and use these layouts:
 
@@ -44,7 +37,7 @@ SEED=0
 
 python scripts/prepare_dataset.py \
   --dataset "$DATASET" --dataset-root "$DATA_ROOT" \
-  --split-file "$SPLIT" --splits train val test --check-volumes \
+  --split-file "$SPLIT" --splits train test --check-volumes \
   --output outputs/dataset.json
 ```
 
@@ -102,16 +95,16 @@ done
 ```
 
 Each student uses only training-case teacher targets for optimization.
-`best.pt` is selected by validation Dice; `last.pt` stores the final epoch.
+`last.pt` stores the final-epoch checkpoint used by the next stage.
 
 ## Consensus-Divergence refinement
 
 ```bash
 CHECKPOINTS=(
-  --checkpoint "vista3d=outputs/dual/$TARGET/vista3d/seed_$SEED/best.pt"
-  --checkpoint "primusv2=outputs/dual/$TARGET/primusv2/seed_$SEED/best.pt"
-  --checkpoint "segmambav2=outputs/dual/$TARGET/segmambav2/seed_$SEED/best.pt"
-  --checkpoint "urwkv=outputs/dual/$TARGET/urwkv/seed_$SEED/best.pt"
+  --checkpoint "vista3d=outputs/dual/$TARGET/vista3d/seed_$SEED/last.pt"
+  --checkpoint "primusv2=outputs/dual/$TARGET/primusv2/seed_$SEED/last.pt"
+  --checkpoint "segmambav2=outputs/dual/$TARGET/segmambav2/seed_$SEED/last.pt"
+  --checkpoint "urwkv=outputs/dual/$TARGET/urwkv/seed_$SEED/last.pt"
 )
 
 python scripts/build_cdft_regions.py \
@@ -125,11 +118,11 @@ python scripts/train_cdft.py \
   --cache-root outputs/pam_cache --region-root "outputs/cdft_regions/seed_$SEED" \
   --target "$TARGET" "${CHECKPOINTS[@]}" \
   --output-dir "outputs/cdft/$TARGET/seed_$SEED" \
-  --epochs 10 --device cuda:0 --amp --seed "$SEED"
+  --epochs 100 --device cuda:0 --amp --seed "$SEED"
 ```
 
-Regions are built on training cases from the frozen HCDD bank. The `best/`
-CDFT bank is selected on validation Dice. Core hyperparameters are listed in
+Regions are built on training cases from the frozen HCDD bank. The `last/`
+CDFT bank stores the final-epoch students. Core hyperparameters are listed in
 [the configuration](../configs/hyperparameters.json).
 
 ## Final test and aggregation
@@ -138,16 +131,16 @@ CDFT bank is selected on validation Dice. Core hyperparameters are listed in
 python scripts/evaluate.py \
   --dataset "$DATASET" --dataset-root "$DATA_ROOT" --split-file "$SPLIT" \
   --split test \
-  --bank "$TARGET:vista3d=outputs/cdft/$TARGET/seed_$SEED/best/vista3d.pt" \
-  --bank "$TARGET:primusv2=outputs/cdft/$TARGET/seed_$SEED/best/primusv2.pt" \
-  --bank "$TARGET:segmambav2=outputs/cdft/$TARGET/seed_$SEED/best/segmambav2.pt" \
-  --bank "$TARGET:urwkv=outputs/cdft/$TARGET/seed_$SEED/best/urwkv.pt" \
+  --bank "$TARGET:vista3d=outputs/cdft/$TARGET/seed_$SEED/last/vista3d.pt" \
+  --bank "$TARGET:primusv2=outputs/cdft/$TARGET/seed_$SEED/last/primusv2.pt" \
+  --bank "$TARGET:segmambav2=outputs/cdft/$TARGET/seed_$SEED/last/segmambav2.pt" \
+  --bank "$TARGET:urwkv=outputs/cdft/$TARGET/seed_$SEED/last/urwkv.pt" \
   --output-dir "outputs/evaluation/$DATASET/seed_$SEED" \
   --device cuda:0 --amp --seed "$SEED"
 ```
 
 Test prediction requires neither PAM nor a slice prompt. Evaluation defaults
-to `--split test`; use `--split val` for validation diagnostics.
+to `--split test`; use `--split val` for diagnostics when a separate validation list is provided.
 
 For five training seeds, average metrics per case before computing the
 across-case mean and population standard deviation:

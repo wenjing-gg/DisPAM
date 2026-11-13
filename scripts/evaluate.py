@@ -94,6 +94,8 @@ def main() -> None:
         args.split_file,
         args.split,
     )
+    if not cases:
+        raise ValueError(f"No cases configured for {args.split!r} evaluation.")
     in_channels = len(cases[0].image_paths)
     complete_summary: Dict[str, object] = {
         "dataset": args.dataset,

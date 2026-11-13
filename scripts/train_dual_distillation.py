@@ -72,7 +72,7 @@ def main() -> None:
     )
     val_cases = cases_for_split(
         args.dataset, args.dataset_root, args.split_file, "val"
-    )
+    ) if protocol["val"] else []
     dataset = DistillationPatchDataset(
         train_cases,
         args.cache_root,
@@ -108,8 +108,7 @@ def main() -> None:
     )
     scheduler = CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp and device.type == "cuda")
-    metadata = {**vars(args), "data_protocol": protocol}
-    best_dice = -1.0
+    metadata = {**vars(args), "data_protocol": protocol, "checkpoint_selection": "final_epoch"}
     history = []
     args.output_dir.mkdir(parents=True, exist_ok=True)
     use_amp = bool(args.amp and device.type == "cuda")
@@ -142,7 +141,7 @@ def main() -> None:
         scheduler.step()
         row = {"epoch": epoch, "train_loss": total / max(1, steps)}
         should_validate = epoch % args.validation_interval == 0 or epoch == args.epochs
-        if should_validate:
+        if val_cases and should_validate:
             val_dice, _ = evaluate_model(
                 model,
                 val_cases,
@@ -155,17 +154,6 @@ def main() -> None:
                 args.amp,
             )
             row["val_dice"] = val_dice
-            if val_dice > best_dice:
-                best_dice = val_dice
-                save_model_checkpoint(
-                    args.output_dir / "best.pt",
-                    model,
-                    optimizer,
-                    scheduler,
-                    epoch,
-                    args.model,
-                    metadata,
-                )
         save_model_checkpoint(
             args.output_dir / "last.pt",
             model,

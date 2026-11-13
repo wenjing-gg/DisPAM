@@ -63,14 +63,17 @@ def _normalize_case_id(value: object) -> str:
 
 
 def load_splits(path: Path) -> Dict[str, List[str]]:
-    """Read three explicit, nonempty, pairwise-disjoint case collections."""
+    """Read disjoint training/test lists and an optional validation list."""
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError(f"Split file must contain a JSON object: {path}")
     splits: Dict[str, List[str]] = {}
     for name in ("train", "val", "test"):
         aliases = [payload[key] for key in (name, f"{name}_case_ids") if key in payload]
-        if not aliases or any(not isinstance(ids, list) or not ids for ids in aliases):
+        if name == "val" and not aliases:
+            splits[name] = []
+            continue
+        if not aliases or any(not isinstance(ids, list) or (not ids and name != "val") for ids in aliases):
             raise ValueError(f"An explicit, nonempty {name!r} split is required.")
         normalized = [[_normalize_case_id(value) for value in ids] for ids in aliases]
         if any(ids != normalized[0] for ids in normalized[1:]):
@@ -102,15 +105,16 @@ def make_three_way_split(
     """Hold validation cases out of a development pool without moving test cases."""
     development = sorted(_normalize_case_id(value) for value in development_ids)
     test = [_normalize_case_id(value) for value in test_ids]
-    if not 0 < validation_fraction < 1 or len(development) < 2 or not test:
-        raise ValueError("Need a development pool, a test set, and 0 < val fraction < 1.")
+    if not 0 <= validation_fraction < 1 or len(development) < 2 or not test:
+        raise ValueError("Need a development pool, a test set, and 0 <= val fraction < 1.")
     if any(not value for value in development + test):
         raise ValueError("Case identifiers must not be empty.")
     if len(set(development)) != len(development) or len(set(test)) != len(test):
         raise ValueError("Duplicate case identifiers in the input pools.")
     if set(development).intersection(test):
         raise ValueError("Development and test pools overlap.")
-    count = min(len(development) - 1, max(1, round(len(development) * validation_fraction)))
+    count = (min(len(development) - 1, max(1, round(len(development) * validation_fraction)))
+             if validation_fraction else 0)
     val = set(random.Random(seed).sample(development, count))
     return {
         "schema_version": 2,
@@ -138,8 +142,8 @@ def validate_checkpoint_protocol(
     recorded = metadata.get("data_protocol") if isinstance(metadata, dict) else None
     if recorded is None:
         raise ValueError(
-            "Checkpoint has no train/val/test provenance. Retrain with the "
-            "three-way protocol before refinement or final evaluation."
+            "Checkpoint has no train/val/test provenance. Supply a checkpoint "
+            "with recorded case partitions for refinement or evaluation."
         )
     if recorded != protocol:
         raise ValueError("Checkpoint training/validation/test split differs from this run.")

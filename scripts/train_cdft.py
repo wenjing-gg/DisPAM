@@ -99,7 +99,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samples-per-case", type=int, default=1)
     parser.add_argument("--foreground-probability", type=float, default=0.8)
     parser.add_argument("--core-probability", type=float, default=0.5)
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--learning-rate", type=float, default=2e-5)
@@ -165,7 +165,7 @@ def main() -> None:
     )
     val_cases = cases_for_split(
         args.dataset, args.dataset_root, args.split_file, "val"
-    )
+    ) if protocol["val"] else []
     train_dataset = CDFTPatchDataset(
         train_cases,
         args.cache_root,
@@ -244,11 +244,10 @@ def main() -> None:
     scheduler = CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp and device.type == "cuda")
     use_amp = bool(args.amp and device.type == "cuda")
-    metadata = {**vars(args), "data_protocol": protocol}
+    metadata = {**vars(args), "data_protocol": protocol, "checkpoint_selection": "final_epoch"}
     metadata["checkpoint"] = [str(value) for value in args.checkpoint]
     metadata["feature_channels"] = feature_channels
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    best_dice = -1.0
     history: List[Dict[str, float | int]] = []
 
     for epoch in range(1, args.epochs + 1):
@@ -328,7 +327,7 @@ def main() -> None:
             "epoch": epoch,
             "train_loss": epoch_total / max(1, steps),
         }
-        if epoch % args.validation_interval == 0 or epoch == args.epochs:
+        if val_cases and (epoch % args.validation_interval == 0 or epoch == args.epochs):
             summary, _ = evaluate_ensemble(
                 [models[name] for name in MODEL_NAMES],
                 val_cases,
@@ -342,18 +341,6 @@ def main() -> None:
             )
             val_dice = float(summary["mean_dice"] or 0.0)
             row["val_dice"] = val_dice
-            if val_dice > best_dice:
-                best_dice = val_dice
-                _save_bank(
-                    args.output_dir / "best",
-                    models,
-                    adapters,
-                    descriptor_encoder,
-                    optimizer,
-                    scheduler,
-                    epoch,
-                    metadata,
-                )
         _save_bank(
             args.output_dir / "last",
             models,

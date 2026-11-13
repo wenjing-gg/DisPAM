@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a fixed validation holdout while preserving the outer test cases."""
+"""Prepare training/test partitions with an optional validation holdout."""
 
 from __future__ import annotations
 
@@ -21,10 +21,9 @@ def create_splits(payload: dict, validation_fraction: float, seed: int) -> dict:
 
     development = ids("train")
     test = ids("test")
-    if test is None:
-        # The old KiTS split called its outer evaluation collection "val".
-        test = ids("val")
-    elif ids("val") is not None:
+    if development is None or test is None:
+        raise ValueError("Explicit train and test case lists are required.")
+    if ids("val") is not None:
         development = list(development) + list(ids("val"))
     return make_three_way_split(development, test, validation_fraction, seed)
 
@@ -33,7 +32,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--validation-fraction", type=float, default=0.1)
+    parser.add_argument("--validation-fraction", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     payload = json.loads(args.input.read_text(encoding="utf-8"))

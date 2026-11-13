@@ -45,35 +45,36 @@ class SplitProtocolTests(unittest.TestCase):
         return self.path
 
     def test_shipped_partitions_are_disjoint_fixed_and_reproducible(self):
-        counts = {"kits19": (161, 18, 20), "brats18": (205, 23, 57), "lits": (94, 10, 27)}
+        counts = {"kits19": (179, 0, 20), "brats18": (228, 0, 57), "lits": (104, 0, 27)}
         for dataset, expected in counts.items():
             with self.subTest(dataset=dataset):
                 path = ROOT / "configs" / "splits" / f"{dataset}.json"
                 splits = load_splits(path)
                 self.assertEqual(tuple(map(len, splits.values())), expected)
-                recreated = create_splits(json.loads(path.read_text()), 0.1, 0)
+                recreated = create_splits(json.loads(path.read_text()), 0.0, 0)
                 self.assertEqual(recreated["train"], splits["train"])
                 self.assertEqual(recreated["val"], splits["val"])
                 self.assertEqual(recreated["test"], splits["test"])
 
     def test_missing_validation_never_aliases_test(self):
         self.write({"train": ["a"], "test": ["b"]})
-        for name in ("train", "val", "test"):
-            with self.subTest(split=name), self.assertRaisesRegex(ValueError, "val"):
-                load_split_case_ids(self.path, name)
+        self.assertEqual(load_split_case_ids(self.path, "train"), ["a"])
+        self.assertEqual(load_split_case_ids(self.path, "val"), [])
+        self.assertEqual(load_split_case_ids(self.path, "test"), ["b"])
+        with self.assertRaisesRegex(ValueError, "test"):
+            load_splits(self.write({"train": ["a"], "val": ["b"]}))
 
     def test_overlap_and_normalized_duplicate_cases_are_rejected(self):
         for payload in [
             {"train": ["a"], "val": ["b"], "test": ["b"]},
             {"train": ["a", "folder/a"], "val": ["b"], "test": ["c"]},
-            {"train": ["a"], "val": [], "test": ["c"]},
             {"train": ["a"], "train_case_ids": ["x"], "val": ["b"], "test": ["c"]},
         ]:
             with self.subTest(payload=payload), self.assertRaises(ValueError):
                 load_splits(self.write(payload))
 
     def test_holdout_preserves_outer_test_and_full_development_pool(self):
-        original = {"train_case_ids": [f"case_{i}" for i in range(20)], "val_case_ids": ["outer_test"]}
+        original = {"train_case_ids": [f"case_{i}" for i in range(20)], "test_case_ids": ["outer_test"]}
         result = create_splits(original, 0.1, 0)
         self.assertEqual(result["test"], ["outer_test"])
         self.assertEqual(set(result["train"]) | set(result["val"]), set(original["train_case_ids"]))
@@ -82,7 +83,7 @@ class SplitProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "overlap"):
             make_three_way_split(["a", "b"], ["a"])
 
-    def test_legacy_or_different_checkpoint_partition_is_rejected(self):
+    def test_missing_or_different_checkpoint_partition_is_rejected(self):
         self.write({"train": ["a"], "val": ["b"], "test": ["c"]})
         protocol = split_protocol("kits19", self.path)
         checkpoint = {"metadata": {"target": "kidney", "data_protocol": protocol}}

@@ -3,7 +3,7 @@
 # DisPAM
 
 ### From One Slice to the Whole Volume
-**Single-Slice Supervision for Weakly Supervised 3D Medical Image Segmentation**
+**Single-Slice Propagation Facilitates Weakly Supervised 3D Medical Image Segmentation**
 
 <em>从单张切片到完整体积：弱监督三维医学图像分割</em>
 
@@ -84,13 +84,13 @@ See **[Setup & Usage](docs/USAGE.md)** for data preparation, script arguments, a
 <a id="datasets"></a>
 ## 📦 Datasets
 
-| Dataset | Modality | Train | Validation | Test | Targets |
-| :--- | :---: | ---: | ---: | ---: | :--- |
-| **KiTS19** | CT | 161 | 18 | 20 | Kidney, kidney tumor |
-| **BraTS18** | MRI | 205 | 23 | 57 | Whole tumor (WT), tumor core (TC), enhancing tumor (ET) |
-| **LiTS** | CT | 94 | 10 | 27 | Liver, liver tumor |
+| Dataset | Modality | Train | Evaluation | Targets |
+| :--- | :---: | ---: | ---: | :--- |
+| **KiTS19** | CT | 179 | 20 | Kidney, kidney tumor |
+| **BraTS18** | MRI | 228 | 57 | Whole tumor (WT), tumor core (TC), enhancing tumor (ET) |
+| **LiTS** | CT | 104 | 27 | Liver, liver tumor |
 
-Use the fixed **[split files](configs/splits/)** for all experiments. Training uses `train`, checkpoint selection uses `val`, and final reporting uses `test`. Absent targets receive no prompt or teacher cache.
+Use the fixed **[split files](configs/splits/)** for all experiments. Students train on `train` with propagated teacher targets. The final-epoch checkpoints are used for refinement and final evaluation on `test`. Absent targets receive no prompt or teacher cache.
 
 ---
 
@@ -110,8 +110,6 @@ Use the fixed **[split files](configs/splits/)** for all experiments. Training u
 | **BraTS18** | ET | 0.7073 | 0.5751 | 7.24 | 1.93 |
 | **LiTS** | Liver | 0.9466 | 0.8997 | 7.50 | 1.86 |
 | **LiTS** | Tumor | 0.7321 | 0.5957 | 64.20 | 14.23 |
-
-> These paper-reported values use the manuscript's two-way train/evaluation split; they are not results from the three-way split listed above.
 
 ### Qualitative Results
 

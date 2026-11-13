@@ -76,7 +76,16 @@ class PipelineTests(unittest.TestCase):
             stack.enter_context(redirect_stdout(StringIO()))
             module.main()
 
-    def test_training_selection_and_final_test_use_separate_cases(self):
+    def test_final_epoch_with_validation_monitoring(self):
+        self.run_training_and_evaluation()
+
+    def test_train_test_protocol_never_reads_evaluation_during_training(self):
+        self.split.write_text(json.dumps({"train": ["train"], "test": ["test"]}))
+        self.protocol = split_protocol("kits19", self.split)
+        self.run_training_and_evaluation()
+        self.assertEqual(set(self.train_queries), {"train"})
+
+    def run_training_and_evaluation(self):
         checkpoint_args = []
         for model in MODEL_NAMES:
             output = self.root / "dual" / model
@@ -85,11 +94,14 @@ class PipelineTests(unittest.TestCase):
                 return next(scores), []
             scores = iter([0.9, 0.4])
             self.run_main(hcdd, self.base + ["--model", model, "--cache-root", str(self.cache), "--output-dir", str(output), "--epochs", "2", "--validation-interval", "1", "--num-workers", "0"], self.training_cases, [patch.object(hcdd, "build_model", side_effect=lambda *a: TinyStudent()), patch.object(hcdd, "evaluate_model", side_effect=validation)])
-            best = torch.load(output / "best.pt", map_location="cpu")
             last = torch.load(output / "last.pt", map_location="cpu")
-            self.assertEqual((best["epoch"], last["epoch"]), (1, 2))
-            self.assertEqual(best["metadata"]["data_protocol"], self.protocol)
-            checkpoint_args += ["--checkpoint", f"{model}={output / 'best.pt'}"]
+            self.assertEqual(last["epoch"], 2)
+            self.assertFalse((output / "best.pt").exists())
+            self.assertEqual(last["metadata"]["data_protocol"], self.protocol)
+            self.assertEqual(last["metadata"]["checkpoint_selection"], "final_epoch")
+            history = json.loads((output / "history.json").read_text())
+            self.assertEqual("val_dice" in history[-1], bool(self.protocol["val"]))
+            checkpoint_args += ["--checkpoint", f"{model}={output / 'last.pt'}"]
         region_root = self.root / "regions"
         self.run_main(regions, self.base + checkpoint_args + ["--output-root", str(region_root), "--min-component-voxels", "1"], self.training_cases)
         output = self.root / "cdft"
@@ -110,10 +122,11 @@ class PipelineTests(unittest.TestCase):
         self.assertNotIn("test", self.train_queries)
         banks = []
         for model in MODEL_NAMES:
-            best = torch.load(output / "best" / f"{model}.pt", map_location="cpu")
-            self.assertEqual(best["epoch"], 1)
-            self.assertEqual(best["metadata"]["data_protocol"], self.protocol)
-            banks += ["--bank", f"kidney:{model}={output / 'best' / (model + '.pt')}"]
+            final = torch.load(output / "last" / f"{model}.pt", map_location="cpu")
+            self.assertEqual(final["epoch"], 2)
+            self.assertFalse((output / "best").exists())
+            self.assertEqual(final["metadata"]["data_protocol"], self.protocol)
+            banks += ["--bank", f"kidney:{model}={output / 'last' / (model + '.pt')}"]
         def held_out_cases(dataset, root, split_file, role):
             self.assertEqual(role, "test")
             return self.cases[role]
@@ -126,11 +139,10 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(
             {row["case_id"] for row in csv.DictReader(StringIO(rows))}, {"test"}
         )
-        # An old weight file cannot become an independent-test checkpoint merely
-        # by being passed a new split file.
-        old = torch.load(output / "best" / "vista3d.pt", map_location="cpu")
+        # Checkpoint partitions must match the requested evaluation protocol.
+        old = torch.load(output / "last" / "vista3d.pt", map_location="cpu")
         old["metadata"].pop("data_protocol")
-        torch.save(old, output / "best" / "vista3d.pt")
+        torch.save(old, output / "last" / "vista3d.pt")
         with self.assertRaisesRegex(ValueError, "no train/val/test provenance"):
             self.run_main(evaluate, evaluation_args, held_out_cases)
 
